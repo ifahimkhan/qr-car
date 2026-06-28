@@ -1,0 +1,57 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Owner {
+  id                String             @id @default(uuid())
+  phone             String             @unique
+  name              String             @default("")
+  createdAt         DateTime           @default(now())
+  vehicles          Vehicle[]
+  emergencyContacts EmergencyContact[]
+}
+
+model EmergencyContact {
+  id       String @id @default(uuid())
+  ownerId  String
+  owner    Owner  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name     String
+  phone    String
+  priority Int    @default(1)
+}
+
+model Vehicle {
+  id        String    @id @default(uuid())
+  ownerId   String
+  owner     Owner     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  regNumber String
+  make      String    @default("")
+  model     String    @default("")
+  color     String    @default("")
+  tokens    QrToken[]
+}
+
+model QrToken {
+  id         String      @id @default(uuid())
+  vehicleId  String
+  vehicle    Vehicle     @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  token      String      @unique @default(uuid())
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  scanEvents ScanEvent[]
+}
+
+model ScanEvent {
+  id         String   @id @default(uuid())
+  tokenId    String
+  token      QrToken  @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  actionType String
+  lat        Float?
+  lng        Float?
+  scannedAt  DateTime @default(now())
+}
