@@ -12,6 +12,12 @@ export default function Home() {
 
         <div className="mt-10 flex flex-col gap-3">
           <Link
+            href="/login"
+            className="w-full rounded-xl bg-black py-4 text-center text-base font-semibold text-white transition-colors hover:bg-gray-900"
+          >
+            Login
+          </Link>
+          <Link
             href="/register"
             className="w-full rounded-xl bg-[#16a34a] py-4 text-center text-base font-semibold text-white transition-colors hover:bg-[#15803d]"
           >
