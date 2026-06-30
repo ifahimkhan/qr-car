@@ -1,24 +1,12 @@
 import jwt from "jsonwebtoken";
+import { createHmac } from "crypto";
 
 export interface SessionPayload {
   ownerId: string;
   phone: string;
 }
 
-interface OtpEntry {
-  code: string;
-  expiresAt: number;
-}
-
-const OTP_TTL_MS = 5 * 60 * 1000;
-
-// Pin OTP store to globalThis so it survives Next dev HMR and is shared across
-// separately-bundled route handlers (same reason db.ts pins the Prisma client).
-const globalForOtp = globalThis as unknown as {
-  otpStore?: Map<string, OtpEntry>;
-};
-const otpStore = globalForOtp.otpStore ?? new Map<string, OtpEntry>();
-if (process.env.NODE_ENV !== "production") globalForOtp.otpStore = otpStore;
+const OTP_WINDOW_MIN = 5;
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -26,22 +14,28 @@ function getJwtSecret(): string {
   return secret;
 }
 
+// Returns the current 5-minute time bucket (rolls every 5 min).
+function timeBucket(): number {
+  return Math.floor(Date.now() / (OTP_WINDOW_MIN * 60 * 1000));
+}
+
+// Derives a 6-digit OTP from phone + time bucket + secret.
+// Stateless — any serverless instance produces the same code for the same inputs.
+function deriveCode(phone: string, bucket: number): string {
+  const hmac = createHmac("sha256", getJwtSecret());
+  hmac.update(`${phone}:${bucket}`);
+  const n = parseInt(hmac.digest("hex").slice(0, 8), 16);
+  return ((n % 900000) + 100000).toString();
+}
+
 export function generateOTP(phone: string): string {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  otpStore.set(phone, { code, expiresAt: Date.now() + OTP_TTL_MS });
-  return code;
+  return deriveCode(phone, timeBucket());
 }
 
 export function verifyOTP(phone: string, code: string): boolean {
-  const entry = otpStore.get(phone);
-  if (!entry) return false;
-  if (Date.now() > entry.expiresAt) {
-    otpStore.delete(phone);
-    return false;
-  }
-  if (entry.code !== code) return false;
-  otpStore.delete(phone);
-  return true;
+  const bucket = timeBucket();
+  // Accept current bucket and the previous one (covers window-boundary edge case).
+  return deriveCode(phone, bucket) === code || deriveCode(phone, bucket - 1) === code;
 }
 
 export function signJWT(payload: SessionPayload): string {
