@@ -109,19 +109,24 @@ export default function RegisterPage() {
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone number</Label>
+              <Label htmlFor="phone">Phone number (with country code)</Label>
               <Input
                 id="phone"
                 type="tel"
-                placeholder="+91 98765 43210"
+                placeholder="+91 9876543210"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => {
+                  let v = e.target.value.trim();
+                  if (v && !v.startsWith("+")) v = "+" + v;
+                  setPhone(v);
+                }}
               />
+              <p className="text-xs text-gray-400">Include country code — e.g. +91 for India</p>
             </div>
             <Button
               onClick={sendOtp}
-              disabled={loading || !phone.trim()}
-              className="w-full rounded-xl py-4 h-auto"
+              disabled={loading || phone.trim().length < 8}
+              className="w-full rounded-xl py-4 h-auto bg-black text-white hover:bg-gray-900"
             >
               Send OTP
             </Button>
