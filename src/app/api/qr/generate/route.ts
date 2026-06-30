@@ -39,7 +39,9 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   const qrToken = await prisma.qrToken.create({ data: { vehicleId } });
-  const url = `${process.env.NEXT_PUBLIC_BASE_URL}/s/${qrToken.token}`;
+  const base = (process.env.NEXT_PUBLIC_BASE_URL ?? "").replace(/\/+$/, "");
+  const origin = base.startsWith("http") ? base : `https://${base}`;
+  const url = `${origin}/s/${qrToken.token}`;
   const png = await generateQRPng(url);
 
   return NextResponse.json({
