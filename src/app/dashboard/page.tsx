@@ -1,17 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   Phone,
   MessageCircle,
   AlertTriangle,
   MapPin,
   Car,
-  Home,
-  QrCode,
-  User,
 } from "lucide-react";
+import { TabBar } from "./tab-bar";
 
 interface ScanEvent {
   id: string;
@@ -98,7 +95,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <TabBar />
+      <TabBar active="home" />
     </main>
   );
 }
@@ -131,28 +128,6 @@ function ScanRow({ scan, now }: { scan: ScanEvent; now: number }) {
         </a>
       )}
     </div>
-  );
-}
-
-function TabBar() {
-  return (
-    <nav className="fixed bottom-0 inset-x-0 max-w-sm mx-auto bg-white border-t border-gray-100 flex">
-      <span className="flex-1 flex flex-col items-center py-3 text-black">
-        <Home size={20} />
-        <span className="text-[11px] mt-0.5">Home</span>
-      </span>
-      <Link
-        href="/dashboard/sticker"
-        className="flex-1 flex flex-col items-center py-3 text-gray-400"
-      >
-        <QrCode size={20} />
-        <span className="text-[11px] mt-0.5">Sticker</span>
-      </Link>
-      <span className="flex-1 flex flex-col items-center py-3 text-gray-300">
-        <User size={20} />
-        <span className="text-[11px] mt-0.5">Account</span>
-      </span>
-    </nav>
   );
 }
 

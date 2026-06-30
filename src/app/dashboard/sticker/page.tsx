@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,45 +12,73 @@ interface QrState {
   isActive: boolean;
 }
 
-interface VehicleCache {
-  vehicleId: string;
+interface Vehicle {
+  id: string;
   regNumber: string;
   make: string;
   model: string;
+  color: string;
 }
 
-// QR sticker management. Persists the generated PNG + tokenId in localStorage for
-// MVP (no GET-tokens endpoint yet). Owner phone never appears here.
 export default function StickerPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" />}>
+      <StickerContent />
+    </Suspense>
+  );
+}
+
+function StickerContent() {
+  const searchParams = useSearchParams();
+  const vehicleId = searchParams.get("vehicleId") ?? "";
+
   const [qr, setQr] = useState<QrState | null>(null);
-  const [vehicle, setVehicle] = useState<VehicleCache | null>(null);
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const qrKey = vehicleId ? `qrcar_qr_${vehicleId}` : "qrcar_qr";
+
   useEffect(() => {
+    // Load cached QR
     try {
-      const stored = localStorage.getItem("qrcar_qr");
+      const stored = localStorage.getItem(qrKey);
       if (stored) setQr(JSON.parse(stored));
-      const v = localStorage.getItem("qrcar_vehicle");
-      if (v) setVehicle(JSON.parse(v));
-    } catch {
-      // ignore malformed cache
+    } catch {}
+
+    // Fetch vehicle info
+    if (vehicleId) {
+      fetch("/api/vehicles")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((vehicles: Vehicle[]) => {
+          const v = vehicles.find((v) => v.id === vehicleId) ?? null;
+          setVehicle(v);
+        })
+        .catch(() => {});
+    } else {
+      // Fall back to legacy localStorage (single-vehicle flow)
+      try {
+        const v = localStorage.getItem("qrcar_vehicle");
+        if (v) setVehicle(JSON.parse(v));
+      } catch {}
     }
-  }, []);
+  }, [vehicleId, qrKey]);
 
   function persist(next: QrState) {
     setQr(next);
-    localStorage.setItem("qrcar_qr", JSON.stringify(next));
+    localStorage.setItem(qrKey, JSON.stringify(next));
   }
 
   async function generate() {
     setError("");
     setLoading(true);
     try {
+      const id = vehicleId || vehicle?.id;
+      if (!id) throw new Error("No vehicle selected");
       const res = await fetch("/api/qr/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vehicleId: vehicle?.vehicleId }),
+        body: JSON.stringify({ vehicleId: id }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to generate");
@@ -78,18 +107,26 @@ export default function StickerPage() {
     }
   }
 
+  const backHref = vehicleId ? "/dashboard/vehicles" : "/dashboard";
+
   return (
     <main className="min-h-screen max-w-sm mx-auto px-6 py-6">
       <Link
-        href="/dashboard"
+        href={backHref}
         className="inline-flex items-center gap-1 text-sm text-gray-500"
       >
-        <ArrowLeft size={16} /> Dashboard
+        <ArrowLeft size={16} /> {vehicleId ? "My Vehicles" : "Dashboard"}
       </Link>
 
       {!qr ? (
         <div className="mt-10 text-center space-y-4">
           <h1 className="text-[22px] font-semibold">Generate your sticker</h1>
+          {vehicle && (
+            <p className="text-sm text-gray-500">
+              {vehicle.regNumber}
+              {vehicle.make || vehicle.model ? ` · ${vehicle.make} ${vehicle.model}`.trim() : ""}
+            </p>
+          )}
           <p className="text-sm text-gray-500">
             We&apos;ll create a unique QR code for your car.
           </p>
@@ -124,7 +161,10 @@ export default function StickerPage() {
 
           {vehicle && (
             <p className="text-sm text-gray-500 text-center">
-              {vehicle.regNumber} · {vehicle.make} {vehicle.model}
+              {vehicle.regNumber}
+              {vehicle.make || vehicle.model
+                ? ` · ${[vehicle.make, vehicle.model].filter(Boolean).join(" ")}`
+                : ""}
             </p>
           )}
 
