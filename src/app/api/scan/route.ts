@@ -67,7 +67,7 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   if (actionType === "sos" && vehicle.owner.emergencyContacts.length > 0) {
     await notifyEmergencyContacts(
-      vehicle.owner.emergencyContacts.map((c) => ({
+      vehicle.owner.emergencyContacts.map((c: { phone: string; name: string }) => ({
         phone: c.phone,
         name: c.name,
       })),

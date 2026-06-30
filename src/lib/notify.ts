@@ -33,7 +33,7 @@ export async function sendSMS(to: string, body: string): Promise<void> {
 /** Send a WhatsApp message. Prepends the `whatsapp:` channel prefix to `to`. */
 export async function sendWhatsApp(to: string, body: string): Promise<void> {
   await client.messages.create({
-    from: WHATSAPP_FROM,
+    from: `whatsapp:${WHATSAPP_FROM}`,
     to: `whatsapp:${to}`,
     body,
   });
