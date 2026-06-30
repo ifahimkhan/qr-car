@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Car, Plus, QrCode, X } from "lucide-react";
+import { Car, Plus, QrCode, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,7 @@ export default function VehiclesPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
@@ -60,6 +61,24 @@ export default function VehiclesPage() {
       setError(e instanceof Error ? e.message : "Failed to add vehicle");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteVehicle(id: string) {
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/vehicles/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to delete");
+      }
+      setVehicles((prev) => prev.filter((v) => v.id !== id));
+      // Clear cached QR for this vehicle
+      localStorage.removeItem(`qrcar_qr_${id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -161,7 +180,16 @@ export default function VehiclesPage() {
       ) : (
         <div className="space-y-3">
           {vehicles.map((v) => (
-            <VehicleCard key={v.id} vehicle={v} />
+            <VehicleCard
+              key={v.id}
+              vehicle={v}
+              deleting={deletingId === v.id}
+              onDelete={() => {
+                if (confirm(`Delete ${v.regNumber}? This cannot be undone.`)) {
+                  deleteVehicle(v.id);
+                }
+              }}
+            />
           ))}
         </div>
       )}
@@ -171,20 +199,40 @@ export default function VehiclesPage() {
   );
 }
 
-function VehicleCard({ vehicle: v }: { vehicle: Vehicle }) {
+function VehicleCard({
+  vehicle: v,
+  deleting,
+  onDelete,
+}: {
+  vehicle: Vehicle;
+  deleting: boolean;
+  onDelete: () => void;
+}) {
   const subtitle = [v.make, v.model, v.color].filter(Boolean).join(" · ");
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3">
-      <div className="min-w-0">
-        <p className="font-semibold truncate">{v.regNumber}</p>
-        <p className="text-sm text-gray-500 truncate">{subtitle || "No details added"}</p>
+    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-semibold truncate">{v.regNumber}</p>
+          <p className="text-sm text-gray-500 truncate">{subtitle || "No details added"}</p>
+        </div>
+        <div className="flex-shrink-0 flex items-center gap-2">
+          <Link
+            href={`/dashboard/sticker?vehicleId=${v.id}`}
+            className="flex items-center gap-1.5 text-xs font-medium bg-black text-white px-3 py-2 rounded-lg"
+          >
+            <QrCode size={13} /> Sticker
+          </Link>
+          <button
+            onClick={onDelete}
+            disabled={deleting}
+            className="p-2 rounded-lg text-gray-400 hover:text-[#dc2626] hover:bg-red-50 transition-colors disabled:opacity-40"
+            aria-label="Delete vehicle"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
       </div>
-      <Link
-        href={`/dashboard/sticker?vehicleId=${v.id}`}
-        className="flex-shrink-0 flex items-center gap-1.5 text-xs font-medium bg-black text-white px-3 py-2 rounded-lg"
-      >
-        <QrCode size={13} /> Sticker
-      </Link>
     </div>
   );
 }
